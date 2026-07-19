@@ -442,7 +442,7 @@ AI 配置保存在本机浏览器的 `chrome.storage.local`。请勿在不可信
 
 欢迎加入技术交流群，交流 Chrome Extension、CDP 抓包、AI 解读、自动化测试和接口分析相关经验。
 
-![技术交流群](https://mypicture-1258720957.cos.ap-nanjing.myqcloud.com/Screenshot_20260713_151346_com.tencent.mm.jpg)
+![技术交流群](https://mypicture-1258720957.cos.ap-nanjing.myqcloud.com/Obsidian/image-20260719152032463.png)
 
 ## 作者联系
 
