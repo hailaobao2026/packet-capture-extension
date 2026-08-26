@@ -793,6 +793,7 @@ async function analyzeRequest(msg) {
 
 // === Message Handler ===
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (sender.id !== chrome.runtime.id) return;
   handleMessage(message)
     .then(sendResponse)
     .catch(err => sendResponse({ ok: false, error: err.message }));
