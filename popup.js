@@ -45,6 +45,7 @@ let aiLoading = false;
 let latestAIAnalysis = '';
 
 const AI_CONFIG_KEY = 'aiConfig';
+const AI_KEY_MATERIAL_KEY = 'aiKeyMaterial';
 const AI_DEFAULT_BASE_URL = {
   openai: 'https://api.openai.com',
   anthropic: 'https://api.anthropic.com'
@@ -392,13 +393,42 @@ function renderAIModelOptions(models = [], selectedModel = '') {
   updateCustomModelVisibility();
 }
 
+async function getAICryptoKey() {
+  const store = await chrome.storage.local.get(AI_KEY_MATERIAL_KEY);
+  let raw = store[AI_KEY_MATERIAL_KEY];
+  if (!raw) {
+    raw = Array.from(crypto.getRandomValues(new Uint8Array(32)));
+    await chrome.storage.local.set({ [AI_KEY_MATERIAL_KEY]: raw });
+  }
+  return crypto.subtle.importKey('raw', new Uint8Array(raw), 'AES-GCM', false, ['encrypt', 'decrypt']);
+}
+
+async function encryptAIApiKey(plain) {
+  if (!plain) return '';
+  const key = await getAICryptoKey();
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const cipher = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(plain));
+  return { iv: Array.from(iv), data: Array.from(new Uint8Array(cipher)) };
+}
+
+async function decryptAIApiKey(enc) {
+  if (!enc || typeof enc !== 'object') return enc || '';
+  try {
+    const key = await getAICryptoKey();
+    const plainBuf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: new Uint8Array(enc.iv) }, key, new Uint8Array(enc.data));
+    return new TextDecoder().decode(plainBuf);
+  } catch {
+    return '';
+  }
+}
+
 async function loadAIConfig() {
   const data = await chrome.storage.local.get(AI_CONFIG_KEY);
   const cfg = data[AI_CONFIG_KEY] || {};
   aiProvider.value = cfg.provider || 'openai';
   aiBaseUrl.value = cfg.baseUrl || AI_DEFAULT_BASE_URL[aiProvider.value] || '';
   aiModelsBaseUrl.value = cfg.modelsBaseUrl || '';
-  aiApiKey.value = cfg.apiKey || '';
+  aiApiKey.value = (await decryptAIApiKey(cfg.apiKey)) || '';
   aiCustomModel.value = cfg.model || '';
   aiIncludeBodies.checked = cfg.includeBodies !== false;
   aiRedactSensitive.checked = cfg.redactSensitive !== false;
@@ -422,7 +452,8 @@ function collectAIConfig() {
 
 async function saveAIConfig() {
   const cfg = collectAIConfig();
-  await chrome.storage.local.set({ [AI_CONFIG_KEY]: cfg });
+  const toStore = { ...cfg, apiKey: await encryptAIApiKey(cfg.apiKey) };
+  await chrome.storage.local.set({ [AI_CONFIG_KEY]: toStore });
   return cfg;
 }
 
